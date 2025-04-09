@@ -28,12 +28,11 @@ import mlflow
 from urllib.parse import urlparse
 
 import dagshub
-dagshub.init(repo_owner='abhtft', repo_name='Network_security', mlflow=True)
+dagshub.init(repo_owner='abh.tft', repo_name='networksecurity', mlflow=True)
 
 os.environ["MLFLOW_TRACKING_URI"]="https://dagshub.com/abhtft/Network_security.mlflow"
 os.environ["MLFLOW_TRACKING_USERNAME"]="abhtft"
-os.environ["MLFLOW_TRACKING_PASSWORD"]=""
-
+os.environ["MLFLOW_TRACKING_PASSWORD"]="6b9c98646d57032cf84117186f78dbfddba5c4d7"
 
 
 
