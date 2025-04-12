@@ -70,19 +70,26 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
+      - name: Setup Environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y docker.io awscli
+          sudo usermod -aG docker $USER
+          sudo systemctl start docker
+          sudo systemctl status docker
+          whoami
+          groups
+          docker --version
+          aws --version
+
       - name: System Check
         run: |
           df -h
           free -m
           ps aux
-          docker info
-          docker system df
-
-      - name: Install AWS CLI
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y awscli
-          aws --version
+          sudo systemctl status docker || true
+          docker info || true
+          docker system df || true
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
@@ -98,25 +105,25 @@ jobs:
       - name: Debug ECR Login
         run: |
           echo "ECR Registry: ${{secrets.AWS_ECR_LOGIN_URI}}"
-          aws ecr describe-repositories
+          aws ecr describe-repositories || true
+          aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{secrets.AWS_ECR_LOGIN_URI}} || true
       
       - name: Pull latest images
         run: |
           echo "Pulling image from ECR..."
-          docker pull ${{secrets.AWS_ECR_LOGIN_URI}}/${{ secrets.ECR_REPOSITORY_NAME }}:latest || exit 1
+          sudo docker pull ${{secrets.AWS_ECR_LOGIN_URI}}/${{ secrets.ECR_REPOSITORY_NAME }}:latest || exit 1
          
       - name: Stop and remove existing container if running
         continue-on-error: true
         run: |
-          docker ps -a
-          docker stop networksecurity || true
-          docker rm -f networksecurity || true
+          sudo docker ps -a
+          sudo docker stop networksecurity || true
+          sudo docker rm -f networksecurity || true
        
       - name: Run Docker Image to serve users
         run: |
           echo "Starting container..."
-          # Add restart policy and resource limits
-          docker run -d \
+          sudo docker run -d \
             --name networksecurity \
             -p 8080:8080 \
             --ipc="host" \
@@ -132,9 +139,9 @@ jobs:
       - name: Verify container is running
         run: |
           echo "Checking container status..."
-          docker ps
+          sudo docker ps
           echo "Container logs:"
-          docker logs networksecurity || true
+          sudo docker logs networksecurity || true
           echo "System status:"
           free -m
           df -h
@@ -143,13 +150,13 @@ jobs:
         run: |
           echo "Monitoring container for 30 seconds..."
           for i in {1..6}; do
-            docker ps
-            docker stats --no-stream networksecurity
-            docker logs --tail 50 networksecurity
+            sudo docker ps
+            sudo docker stats --no-stream networksecurity
+            sudo docker logs --tail 50 networksecurity
             sleep 5
           done
           
       - name: Clean previous images and containers
         if: always()
         run: |
-          docker system prune -f
+          sudo docker system prune -f
