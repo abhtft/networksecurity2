@@ -122,6 +122,7 @@ jobs:
           docker run -d \
             --name networksecurity \
             -p 8080:8080 \
+            -p 8000:8000 \
             --ipc="host" \
             --restart unless-stopped \
             --memory="1g" \
@@ -136,16 +137,15 @@ jobs:
         run: |
           echo "Checking container status..."
           docker ps -a
+          echo "\nWaiting for application to start..."
+          sleep 10
           echo "\nChecking container logs..."
           docker logs networksecurity
-          echo "\nChecking port binding..."
-          netstat -tulpn | grep 8080 || true
-          echo "\nChecking container network..."
-          docker inspect networksecurity | grep -i ipaddress
-          echo "\nChecking container port mappings..."
+          echo "\nChecking port bindings..."
           docker port networksecurity
           echo "\nChecking if application is responding..."
-          curl -v localhost:8080 || true
+          curl -v localhost:8080/docs || true
+          curl -v localhost:8000/docs || true
           
       - name: Check Security Group
         run: |
