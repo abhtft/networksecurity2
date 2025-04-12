@@ -30,7 +30,7 @@ if __name__=='__main__':
         data_validation_artifact=data_validation.initiate_data_validation()
         logging.info("data Validation Completed")
         print(data_validation_artifact)
-
+re
         data_transformation_config=DataTransformationConfig(trainingpipelineconfig)
         logging.info("data Transformation started")
         data_transformation=DataTransformation(data_validation_artifact,data_transformation_config)
