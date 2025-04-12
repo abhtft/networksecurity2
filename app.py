@@ -6,8 +6,8 @@ ca = certifi.where()
 
 from dotenv import load_dotenv
 load_dotenv()
-mongo_db_url = os.getenv("MONGODB_URL_KEY")
-print(mongo_db_url)
+mongo_db_url = os.getenv("MONGO_DB_URL")
+print("MongoDB URL:", mongo_db_url)
 import pymongo
 from networksecurity.exception.exception import NetworkSecurityException
 from networksecurity.logging.logger import logging
@@ -24,8 +24,15 @@ from networksecurity.utils.main_utils.utils import load_object
 
 from networksecurity.utils.ml_utils.model.estimator import NetworkModel
 
-
-client = pymongo.MongoClient(mongo_db_url, tlsCAFile=ca)
+try:
+    client = pymongo.MongoClient(mongo_db_url, tlsCAFile=ca)
+    print("MongoDB Connected successfully!")
+    # Verify the connection
+    client.server_info()
+    print("MongoDB Connection verified!")
+except Exception as e:
+    print("MongoDB Connection Error:", str(e))
+    raise e
 
 from networksecurity.constant.training_pipeline import DATA_INGESTION_COLLECTION_NAME
 from networksecurity.constant.training_pipeline import DATA_INGESTION_DATABASE_NAME

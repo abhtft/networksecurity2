@@ -131,7 +131,7 @@ jobs:
             --memory="1g" \
             --memory-swap="2g" \
             --cpus="1" \
-            -e MONGODB_URL_KEY="${{ secrets.MONGODB_URL_KEY }}" \
+            -e MONGODB_URL_KEY="${{ secrets.MONGO_DB_URL }}" \
             -e MLFLOW_TRACKING_URI="${{ secrets.MLFLOW_TRACKING_URI }}" \
             -e MLFLOW_TRACKING_USERNAME="${{ secrets.MLFLOW_TRACKING_USERNAME }}" \
             -e MLFLOW_TRACKING_PASSWORD="${{ secrets.MLFLOW_TRACKING_PASSWORD }}" \
