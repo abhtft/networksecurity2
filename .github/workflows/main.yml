@@ -132,23 +132,38 @@ jobs:
             -e AWS_REGION=${{ secrets.AWS_REGION }} \
             585008066805.dkr.ecr.ap-south-1.amazonaws.com/networksecurity:latest
 
-      - name: Verify container is running
+      - name: Verify container and port
         run: |
           echo "Checking container status..."
-          sudo docker ps
-          echo "Container logs:"
-          sudo docker logs networksecurity || true
-          echo "System status:"
-          free -m
-          df -h
+          docker ps -a
+          echo "\nChecking container logs..."
+          docker logs networksecurity
+          echo "\nChecking port binding..."
+          netstat -tulpn | grep 8080 || true
+          echo "\nChecking container network..."
+          docker inspect networksecurity | grep -i ipaddress
+          echo "\nChecking container port mappings..."
+          docker port networksecurity
+          echo "\nChecking if application is responding..."
+          curl -v localhost:8080 || true
+          
+      - name: Check Security Group
+        run: |
+          echo "Checking security group rules..."
+          aws ec2 describe-security-groups --group-ids $(curl -s http://169.254.169.254/latest/meta-data/security-groups) || true
           
       - name: Monitor container for stability
         run: |
           echo "Monitoring container for 30 seconds..."
           for i in {1..6}; do
-            sudo docker ps
-            sudo docker stats --no-stream networksecurity
-            sudo docker logs --tail 50 networksecurity
+            echo "\nIteration $i:"
+            docker ps
+            echo "\nContainer stats:"
+            docker stats --no-stream networksecurity
+            echo "\nContainer logs:"
+            docker logs --tail 20 networksecurity
+            echo "\nPort status:"
+            netstat -tulpn | grep 8080 || true
             sleep 5
           done
           
