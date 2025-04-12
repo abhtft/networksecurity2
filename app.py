@@ -6,8 +6,14 @@ ca = certifi.where()
 
 from dotenv import load_dotenv
 load_dotenv()
-mongo_db_url = os.getenv("MONGO_DB_URL")
-print("MongoDB URL:", mongo_db_url)
+
+# Default MongoDB URL if environment variable is not set
+default_mongo_url = 'mongodb://abhishek:0LiWdFRno2XWIGaP@cluster0-shard-00-00.yanlm.mongodb.net:27017,cluster0-shard-00-01.yanlm.mongodb.net:27017,cluster0-shard-00-02.yanlm.mongodb.net:27017/?ssl=true&replicaSet=atlas-nox15r-shard-0&authSource=admin&retryWrites=true&w=majority'
+
+# Try different environment variable names and fallback to default
+mongo_db_url = os.getenv("MONGO_DB_URL") or os.getenv("MONGODB_URL_KEY") or default_mongo_url
+print("MongoDB URL being used:", mongo_db_url)
+
 import pymongo
 from networksecurity.exception.exception import NetworkSecurityException
 from networksecurity.logging.logger import logging
@@ -21,24 +27,40 @@ from starlette.responses import RedirectResponse
 import pandas as pd
 
 from networksecurity.utils.main_utils.utils import load_object
-
 from networksecurity.utils.ml_utils.model.estimator import NetworkModel
 
-try:
-    client = pymongo.MongoClient(mongo_db_url, tlsCAFile=ca)
-    print("MongoDB Connected successfully!")
-    # Verify the connection
-    client.server_info()
-    print("MongoDB Connection verified!")
-except Exception as e:
-    print("MongoDB Connection Error:", str(e))
-    raise e
+# Initialize MongoDB client with retry logic
+max_retries = 3
+retry_count = 0
+client = None
 
-from networksecurity.constant.training_pipeline import DATA_INGESTION_COLLECTION_NAME
-from networksecurity.constant.training_pipeline import DATA_INGESTION_DATABASE_NAME
+while retry_count < max_retries:
+    try:
+        print(f"Attempting MongoDB connection (attempt {retry_count + 1}/{max_retries})")
+        client = pymongo.MongoClient(mongo_db_url, tlsCAFile=ca, serverSelectionTimeoutMS=5000)
+        # Test the connection
+        client.server_info()
+        print("MongoDB Connected successfully!")
+        break
+    except Exception as e:
+        print(f"MongoDB Connection Error (attempt {retry_count + 1}): {str(e)}")
+        retry_count += 1
+        if retry_count == max_retries:
+            print("Failed to connect to MongoDB after all retries")
+            # Continue without MongoDB for now
+            client = None
+            break
 
-database = client[DATA_INGESTION_DATABASE_NAME]
-collection = database[DATA_INGESTION_COLLECTION_NAME]
+# Only setup database and collection if MongoDB is connected
+if client:
+    try:
+        from networksecurity.constant.training_pipeline import DATA_INGESTION_COLLECTION_NAME
+        from networksecurity.constant.training_pipeline import DATA_INGESTION_DATABASE_NAME
+        database = client[DATA_INGESTION_DATABASE_NAME]
+        collection = database[DATA_INGESTION_COLLECTION_NAME]
+    except Exception as e:
+        print(f"Error setting up MongoDB database/collection: {str(e)}")
+        client = None
 
 app = FastAPI()
 origins = ["*"]
