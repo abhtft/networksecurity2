@@ -99,13 +99,29 @@ jobs:
       - name: Debug ECR Login
         run: |
           echo "ECR Registry: ${{secrets.AWS_ECR_LOGIN_URI}}"
+          echo "ECR Repository: ${{ secrets.ECR_REPOSITORY_NAME }}"
+          echo "AWS Region: ${{ secrets.AWS_REGION }}"
           aws ecr describe-repositories || true
           aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{secrets.AWS_ECR_LOGIN_URI}} || true
       
       - name: Pull latest images
         run: |
+          echo "Full ECR Image URI: ${{secrets.AWS_ECR_LOGIN_URI}}/${{ secrets.ECR_REPOSITORY_NAME }}:latest"
+          # Validate ECR URI format
+          if [[ ! "${{secrets.AWS_ECR_LOGIN_URI}}" =~ ^[0-9]+\.dkr\.ecr\.[a-z0-9-]+\.amazonaws\.com$ ]]; then
+            echo "Invalid ECR URI format. Expected format: <account>.dkr.ecr.<region>.amazonaws.com"
+            exit 1
+          fi
+          
+          # Validate repository name
+          if [[ ! "${{ secrets.ECR_REPOSITORY_NAME }}" =~ ^[a-z0-9][a-z0-9._-]*$ ]]; then
+            echo "Invalid repository name format. Repository names must start with a letter and can only contain lowercase letters, numbers, hyphens, underscores, and periods."
+            exit 1
+          fi
+          
           echo "Pulling image from ECR..."
-          sudo docker pull ${{secrets.AWS_ECR_LOGIN_URI}}/${{ secrets.ECR_REPOSITORY_NAME }}:latest || exit 1
+          aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{secrets.AWS_ECR_LOGIN_URI}}
+          docker pull ${{secrets.AWS_ECR_LOGIN_URI}}/${{ secrets.ECR_REPOSITORY_NAME }}:latest
          
       - name: Stop and remove existing container if running
         continue-on-error: true
@@ -117,7 +133,7 @@ jobs:
       - name: Run Docker Image to serve users
         run: |
           echo "Starting container..."
-          sudo docker run -d \
+          docker run -d \
             --name networksecurity \
             -p 8080:8080 \
             --ipc="host" \
