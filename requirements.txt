@@ -2,6 +2,7 @@ python-dotenv
 pandas
 numpy
 pymongo
+boto3
 
 certifi
 
