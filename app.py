@@ -85,4 +85,6 @@ async def predict_route(request: Request,file: UploadFile = File(...)):
 
     
 if __name__=="__main__":
-    app_run(app, host="0.0.0.0", port=8000)
+    print("Starting FastAPI application...")
+    print("Listening on port 8000")
+    app_run(app, host="0.0.0.0", port=8000, log_level="info")

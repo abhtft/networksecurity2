@@ -121,7 +121,6 @@ jobs:
           echo "Starting container..."
           docker run -d \
             --name networksecurity \
-            -p 8080:8080 \
             -p 8000:8000 \
             --ipc="host" \
             --restart unless-stopped \
@@ -133,24 +132,33 @@ jobs:
             -e AWS_REGION=${{ secrets.AWS_REGION }} \
             585008066805.dkr.ecr.ap-south-1.amazonaws.com/networksecurity:latest
 
-      - name: Verify container and port
+      - name: Wait for application startup
         run: |
-          echo "Checking container status..."
-          docker ps -a
-          echo "\nWaiting for application to start..."
-          sleep 10
-          echo "\nChecking container logs..."
-          docker logs networksecurity
-          echo "\nChecking port bindings..."
-          docker port networksecurity
-          echo "\nChecking if application is responding..."
-          curl -v localhost:8080/docs || true
-          curl -v localhost:8000/docs || true
+          echo "Waiting for application to start..."
+          sleep 15
           
-      - name: Check Security Group
+      - name: Debug container
         run: |
-          echo "Checking security group rules..."
-          aws ec2 describe-security-groups --group-ids $(curl -s http://169.254.169.254/latest/meta-data/security-groups) || true
+          echo "Container status:"
+          docker ps -a
+          echo "\nContainer logs:"
+          docker logs networksecurity
+          echo "\nPort mappings:"
+          docker port networksecurity
+          echo "\nContainer network:"
+          docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' networksecurity
+          echo "\nTesting application endpoints:"
+          curl -v http://localhost:8000/ || true
+          curl -v http://localhost:8000/docs || true
+          
+      - name: Check host machine
+        run: |
+          echo "Checking host machine network:"
+          netstat -tulpn | grep 8000 || true
+          echo "\nChecking host machine resources:"
+          free -m
+          df -h
+          ps aux | grep uvicorn
           
       - name: Monitor container for stability
         run: |
@@ -160,10 +168,8 @@ jobs:
             docker ps
             echo "\nContainer stats:"
             docker stats --no-stream networksecurity
-            echo "\nContainer logs:"
+            echo "\nRecent logs:"
             docker logs --tail 20 networksecurity
-            echo "\nPort status:"
-            netstat -tulpn | grep 8080 || true
             sleep 5
           done
           
