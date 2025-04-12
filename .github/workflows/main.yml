@@ -102,33 +102,19 @@ jobs:
           echo "ECR Repository: ${{ secrets.ECR_REPOSITORY_NAME }}"
           echo "AWS Region: ${{ secrets.AWS_REGION }}"
           aws ecr describe-repositories || true
-          aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{secrets.AWS_ECR_LOGIN_URI}} || true
+          aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin 585008066805.dkr.ecr.ap-south-1.amazonaws.com
       
       - name: Pull latest images
         run: |
-          echo "Full ECR Image URI: ${{secrets.AWS_ECR_LOGIN_URI}}/${{ secrets.ECR_REPOSITORY_NAME }}:latest"
-          # Validate ECR URI format
-          if [[ ! "${{secrets.AWS_ECR_LOGIN_URI}}" =~ ^[0-9]+\.dkr\.ecr\.[a-z0-9-]+\.amazonaws\.com$ ]]; then
-            echo "Invalid ECR URI format. Expected format: <account>.dkr.ecr.<region>.amazonaws.com"
-            exit 1
-          fi
-          
-          # Validate repository name
-          if [[ ! "${{ secrets.ECR_REPOSITORY_NAME }}" =~ ^[a-z0-9][a-z0-9._-]*$ ]]; then
-            echo "Invalid repository name format. Repository names must start with a letter and can only contain lowercase letters, numbers, hyphens, underscores, and periods."
-            exit 1
-          fi
-          
           echo "Pulling image from ECR..."
-          aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{secrets.AWS_ECR_LOGIN_URI}}
-          docker pull ${{secrets.AWS_ECR_LOGIN_URI}}/${{ secrets.ECR_REPOSITORY_NAME }}:latest
+          docker pull 585008066805.dkr.ecr.ap-south-1.amazonaws.com/networksecurity:latest
          
       - name: Stop and remove existing container if running
         continue-on-error: true
         run: |
-          sudo docker ps -a
-          sudo docker stop networksecurity || true
-          sudo docker rm -f networksecurity || true
+          docker ps -a
+          docker stop networksecurity || true
+          docker rm -f networksecurity || true
        
       - name: Run Docker Image to serve users
         run: |
@@ -144,7 +130,7 @@ jobs:
             -e AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
             -e AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
             -e AWS_REGION=${{ secrets.AWS_REGION }} \
-            ${{secrets.AWS_ECR_LOGIN_URI}}/${{ secrets.ECR_REPOSITORY_NAME }}:latest
+            585008066805.dkr.ecr.ap-south-1.amazonaws.com/networksecurity:latest
 
       - name: Verify container is running
         run: |
