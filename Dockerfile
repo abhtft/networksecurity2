@@ -7,13 +7,11 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Create all necessary directories with proper permissions
+# Create necessary directories for the application
 RUN mkdir -p \
     prediction_output \
     final_model \
     templates \
-    Network_Data \
-    data_schema \
     Artifacts \
     saved_models \
     Artifacts/data_ingestion/feature_store \
@@ -26,15 +24,11 @@ RUN mkdir -p \
     Artifacts/model_trainer/trained_model && \
     chmod -R 777 /app
 
-# Copy data files first
-COPY Network_Data/phisingData_L.csv Network_Data/
-COPY data_schema/schema.yaml data_schema/
-
 # Copy requirements and install dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the application
+# Copy the application code
 COPY . .
 
 # Set environment variables
