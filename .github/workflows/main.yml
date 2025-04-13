@@ -162,7 +162,7 @@ jobs:
           echo "\nChecking environment:"
           docker exec networksecurity env | grep -v "KEY\|SECRET"
           echo "\nChecking MongoDB connection:"
-          docker exec networksecurity python -c "from pymongo import MongoClient; import os; client = MongoClient(os.getenv('MONGODB_URL_KEY')); print(client.list_database_names())" || true
+          docker exec networksecurity python -c "from pymongo import MongoClient; import os; client = MongoClient(os.getenv('MONGO_DB_URL')); print(client.list_database_names())" || true
           echo "\nTesting endpoints:"
           curl -v http://localhost:8000/health || true
           

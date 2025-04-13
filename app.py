@@ -89,11 +89,18 @@ async def health_check():
 @app.get("/train")
 async def train_route():
     try:
-        train_pipeline=TrainingPipeline()
+        print("Starting training pipeline...")
+        train_pipeline = TrainingPipeline()
+        print("Initialized training pipeline")
         train_pipeline.run_pipeline()
+        print("Training pipeline completed successfully")
         return Response("Training is successful")
     except Exception as e:
-        raise NetworkSecurityException(e,sys)
+        error_msg = str(e)
+        print(f"Error in training pipeline: {error_msg}")
+        if isinstance(e, NetworkSecurityException):
+            print(f"Stack trace: {e.error_message}")
+        return {"error": f"Training failed: {error_msg}"}
     
 @app.post("/predict")
 async def predict_route(request: Request, file: UploadFile = File(...)):
@@ -125,5 +132,4 @@ async def predict_route(request: Request, file: UploadFile = File(...)):
 
 if __name__=="__main__":
     app_run(app, host="0.0.0.0", port=8000)
-    app_run(app, host="0.0.0.0", port=8080)
 

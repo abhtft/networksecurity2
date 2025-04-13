@@ -24,57 +24,61 @@ from sklearn.ensemble import (
 
 import mlflow
 from urllib.parse import urlparse
+import dagshub
 
-# Comment out DagsHub initialization
-# import dagshub
-# import os
-# dagshub.init(repo_owner='abh.tft', repo_name='networksecurity', mlflow=True)
+# Initialize DagsHub
+dagshub.init(repo_owner='abh.tft', repo_name='networksecurity', mlflow=True)
 
+# MLflow configuration
 MLFLOW_TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI")
 MLFLOW_TRACKING_USERNAME = os.getenv("MLFLOW_TRACKING_USERNAME")
 MLFLOW_TRACKING_PASSWORD = os.getenv("MLFLOW_TRACKING_PASSWORD")
 
-
-
-
-
-
+if MLFLOW_TRACKING_URI:
+    mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+    if MLFLOW_TRACKING_USERNAME and MLFLOW_TRACKING_PASSWORD:
+        os.environ['MLFLOW_TRACKING_USERNAME'] = MLFLOW_TRACKING_USERNAME
+        os.environ['MLFLOW_TRACKING_PASSWORD'] = MLFLOW_TRACKING_PASSWORD
 
 class ModelTrainer:
     def __init__(self,model_trainer_config:ModelTrainerConfig,data_transformation_artifact:DataTransformationArtifact):
         try:
             self.model_trainer_config=model_trainer_config
             self.data_transformation_artifact=data_transformation_artifact
+            # Set MLflow experiment
+            mlflow.set_experiment("NetworkSecurity_Classification")
         except Exception as e:
             raise NetworkSecurityException(e,sys)
         
-    def track_mlflow(self,best_model,classificationmetric):
-        mlflow.set_registry_uri(MLFLOW_TRACKING_URI)
-        tracking_url_type_store = urlparse(mlflow.get_tracking_uri()).scheme
-        with mlflow.start_run():
-            f1_score=classificationmetric.f1_score
-            precision_score=classificationmetric.precision_score
-            recall_score=classificationmetric.recall_score
+    def track_mlflow(self, best_model, classification_metric, model_name, params=None):
+        try:
+            with mlflow.start_run():
+                # Log parameters
+                if params:
+                    mlflow.log_params(params)
+                
+                # Log metrics
+                mlflow.log_metrics({
+                    "f1_score": classification_metric.f1_score,
+                    "precision_score": classification_metric.precision_score,
+                    "recall_score": classification_metric.recall_score
+                })
+                
+                # Log model
+                mlflow.sklearn.log_model(
+                    best_model,
+                    f"{model_name}_model",
+                    registered_model_name=f"NetworkSecurity_{model_name}"
+                )
+                
+                # Log model type
+                mlflow.log_param("model_type", model_name)
+                
+                logging.info(f"Successfully logged model {model_name} to MLflow")
+        except Exception as e:
+            logging.error(f"Error in MLflow tracking: {str(e)}")
+            return
 
-            
-
-            mlflow.log_metric("f1_score",f1_score)
-            mlflow.log_metric("precision",precision_score)
-            mlflow.log_metric("recall_score",recall_score)
-            mlflow.sklearn.log_model(best_model,"model")
-            # Model registry does not work with file store
-            if tracking_url_type_store != "file":
-
-                # Register the model
-                # There are other ways to use the Model Registry, which depends on the use case,
-                # please refer to the doc for more information:
-                # https://mlflow.org/docs/latest/model-registry.html#api-workflow
-                mlflow.sklearn.log_model(best_model, "model", registered_model_name="Best_Model")
-            else:
-                mlflow.sklearn.log_model(best_model, "model")
-
-
-        
     def train_model(self,X_train,y_train,x_test,y_test):
         models = {
                 "Random Forest": RandomForestClassifier(verbose=1),
@@ -86,21 +90,13 @@ class ModelTrainer:
         params={
             "Decision Tree": {
                 'criterion':['gini', 'entropy', 'log_loss'],
-                # 'splitter':['best','random'],
-                # 'max_features':['sqrt','log2'],
             },
             "Random Forest":{
-                # 'criterion':['gini', 'entropy', 'log_loss'],
-                
-                # 'max_features':['sqrt','log2',None],
                 'n_estimators': [8,16,32,128,256]
             },
             "Gradient Boosting":{
-                # 'loss':['log_loss', 'exponential'],
                 'learning_rate':[.1,.01,.001],
                 'subsample':[0.6,0.9],
-                # 'criterion':['squared_error', 'friedman_mse'],
-                # 'max_features':['auto','sqrt','log2'],
                 'n_estimators': [8,128,256]
             },
             "Logistic Regression":{},
@@ -108,7 +104,6 @@ class ModelTrainer:
                 'learning_rate':[.1,.01,.001],
                 'n_estimators': [8,16,32,128,256]
             }
-            
         }
         model_report:dict=evaluate_models(X_train=X_train,y_train=y_train,X_test=x_test,y_test=y_test,
                                           models=models,param=params)
@@ -117,7 +112,6 @@ class ModelTrainer:
         best_model_score = max(sorted(model_report.values()))
 
         ## To get best model name from dict
-
         best_model_name = list(model_report.keys())[
             list(model_report.values()).index(best_model_score)
         ]
@@ -126,14 +120,13 @@ class ModelTrainer:
 
         classification_train_metric=get_classification_score(y_true=y_train,y_pred=y_train_pred)
         
-        ## Track the experiements with mlflow
-        self.track_mlflow(best_model,classification_train_metric)
-
+        ## Track the experiments with mlflow
+        self.track_mlflow(best_model, classification_train_metric, best_model_name, params.get(best_model_name, {}))
 
         y_test_pred=best_model.predict(x_test)
         classification_test_metric=get_classification_score(y_true=y_test,y_pred=y_test_pred)
 
-        self.track_mlflow(best_model,classification_test_metric)
+        self.track_mlflow(best_model, classification_test_metric, f"{best_model_name}_test", params.get(best_model_name, {}))
 
         preprocessor = load_object(file_path=self.data_transformation_artifact.transformed_object_file_path)
             

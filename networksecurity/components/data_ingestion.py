@@ -10,6 +10,8 @@ import os
 import sys
 import numpy as np
 import pandas as pd
+import pymongo
+import certifi
 
 from typing import List
 from sklearn.model_selection import train_test_split
@@ -23,38 +25,76 @@ class DataIngestion:
     def __init__(self,data_ingestion_config:DataIngestionConfig):
         try:
             self.data_ingestion_config=data_ingestion_config
+            # Initialize MongoDB client
+            print(f"Attempting to connect to MongoDB with URL: {MONGO_DB_URL}")
+            self.client = pymongo.MongoClient(MONGO_DB_URL, tlsCAFile=certifi.where())
+            # Test the connection
+            self.client.server_info()
+            print(f"MongoDB connection established successfully")
+            print(f"Available databases: {self.client.list_database_names()}")
         except Exception as e:
+            print(f"Failed to connect to MongoDB: {str(e)}")
             raise NetworkSecurityException(e,sys)
         
     def export_collection_as_dataframe(self):
         """
-        Read data from mongodb
+        Read data from MongoDB or fall back to CSV
         """
         try:
-            file_path = "Network_Data/phisingData_L.csv"
-            df = pd.read_csv(file_path)
-            return df
+            # First try MongoDB
+            try:
+                print(f"Attempting to read data from MongoDB collection: {self.data_ingestion_config.collection_name}")
+                print(f"Database name: {self.data_ingestion_config.database_name}")
+                
+                # Get database and collection
+                database = self.client[self.data_ingestion_config.database_name]
+                collection = database[self.data_ingestion_config.collection_name]
+                
+                print("Fetching data from MongoDB...")
+                df = pd.DataFrame(list(collection.find()))
+                
+                if "_id" in df.columns.to_list():
+                    df = df.drop(columns=["_id"], axis=1)
+                
+                df.replace({"na": np.nan}, inplace=True)
+                
+                print(f"Successfully read data from MongoDB with {len(df)} rows")
+                return df
+                
+            except Exception as mongo_error:
+                print(f"MongoDB read failed: {str(mongo_error)}")
+                print("Falling back to CSV file...")
+                
+                # Fall back to CSV
+                file_path = "Network_Data/phisingData_L.csv"
+                if not os.path.exists(file_path):
+                    raise Exception(f"CSV file not found at {file_path}")
+                    
+                df = pd.read_csv(file_path)
+                print(f"Successfully read data from CSV with {len(df)} rows")
+                return df
 
-            df=pd.DataFrame(list(collection.find()))
-            if "_id" in df.columns.to_list():
-                df=df.drop(columns=["_id"],axis=1)
-            
-            df.replace({"na":np.nan},inplace=True)
-            return df
         except Exception as e:
-            raise NetworkSecurityException
+            print(f"Error in export_collection_as_dataframe: {str(e)}")
+            raise NetworkSecurityException(e, sys)
         
     def export_data_into_feature_store(self,dataframe: pd.DataFrame):
         try:
-            feature_store_file_path=self.data_ingestion_config.feature_store_file_path
+            feature_store_file_path = self.data_ingestion_config.feature_store_file_path
+            print(f"Saving data to feature store at: {feature_store_file_path}")
+            
             #creating folder
             dir_path = os.path.dirname(feature_store_file_path)
-            os.makedirs(dir_path,exist_ok=True)
-            dataframe.to_csv(feature_store_file_path,index=False,header=True)
+            os.makedirs(dir_path, exist_ok=True)
+            print(f"Created directory: {dir_path}")
+            
+            dataframe.to_csv(feature_store_file_path, index=False, header=True)
+            print(f"Successfully saved {len(dataframe)} rows to feature store")
             return dataframe
             
         except Exception as e:
-            raise NetworkSecurityException(e,sys)
+            print(f"Error in export_data_into_feature_store: {str(e)}")
+            raise NetworkSecurityException(e, sys)
         
     def split_data_as_train_test(self,dataframe: pd.DataFrame):
         try:
