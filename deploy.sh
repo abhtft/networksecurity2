@@ -17,6 +17,9 @@ cd /app/networksecurity
 # Install Python dependencies
 sudo pip3 install -r requirements.txt
 
+
+
+
 # Create necessary directories
 sudo mkdir -p templates final_model prediction_output Network_Data data_schema Artifacts saved_models
 sudo mkdir -p Artifacts/data_ingestion/feature_store
@@ -44,3 +47,4 @@ EOL
 
 # Start the application using nohup to keep it running
 nohup uvicorn app:app --host 0.0.0.0 --port 8000 --reload > app.log 2>&1 & 
+
