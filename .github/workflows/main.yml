@@ -131,7 +131,6 @@ jobs:
             --memory="1g" \
             --memory-swap="2g" \
             --cpus="1" \
-    
             -e MLFLOW_TRACKING_URI="${{ secrets.MLFLOW_TRACKING_URI }}" \
             -e MLFLOW_TRACKING_USERNAME="${{ secrets.MLFLOW_TRACKING_USERNAME }}" \
             -e MLFLOW_TRACKING_PASSWORD="${{ secrets.MLFLOW_TRACKING_PASSWORD }}" \
@@ -161,8 +160,7 @@ jobs:
           docker exec networksecurity ls -la /app/final_model
           echo "\nChecking environment:"
           docker exec networksecurity env | grep -v "KEY\|SECRET"
-          echo "\nChecking MongoDB connection:"
-          docker exec networksecurity python -c "from pymongo import MongoClient; import os; client = MongoClient(os.getenv('MONGO_DB_URL')); print(client.list_database_names())" || true
+      
           echo "\nTesting endpoints:"
           curl -v http://localhost:8000/health || true
           
