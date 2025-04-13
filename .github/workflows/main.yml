@@ -62,28 +62,12 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           echo "::set-output name=image::$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
 
-          
   Continuous-Deployment:
     needs: build-and-push-ecr-image
     runs-on: self-hosted
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-
-      - name: Verify Environment
-        run: |
-          whoami
-          docker --version
-          aws --version
-
-      - name: System Check
-        run: |
-          df -h
-          free -m
-          ps aux
-          sudo systemctl status docker || true
-          docker info || true
-          docker system df || true
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
@@ -96,97 +80,18 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
       
-      - name: Debug ECR Login
-        run: |
-          echo "ECR Registry: ${{secrets.AWS_ECR_LOGIN_URI}}"
-          echo "ECR Repository: ${{ secrets.ECR_REPOSITORY_NAME }}"
-          echo "AWS Region: ${{ secrets.AWS_REGION }}"
-          aws ecr describe-repositories || true
-          aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin 585008066805.dkr.ecr.ap-south-1.amazonaws.com
       
       - name: Pull latest images
         run: |
-          echo "Pulling image from ECR..."
-          docker pull 585008066805.dkr.ecr.ap-south-1.amazonaws.com/networksecurity:latest
+         docker pull ${{secrets.AWS_ECR_LOGIN_URI}}/${{ secrets.ECR_REPOSITORY_NAME }}:latest
          
-      - name: Stop and remove existing container if running
-        continue-on-error: true
-        run: |
-          docker ps -a
-          docker stop networksecurity || true
-          docker rm -f networksecurity || true
+      #- name: Stop and remove  container if running
+       # run: |
+        # docker ps -q --filter "name=networksecurity" | grep -q . && docker stop networksecurity && docker rm -fv networksecurity
        
       - name: Run Docker Image to serve users
         run: |
-          echo "Starting container..."
-          # Create necessary directories
-          mkdir -p templates final_model prediction_output
-          
-          # Run the container
-          docker run -d \
-            --name networksecurity \
-            -p 8000:8000 \
-            --ipc="host" \
-            --restart unless-stopped \
-            --memory="1g" \
-            --memory-swap="2g" \
-            --cpus="1" \
-            -e MLFLOW_TRACKING_URI="${{ secrets.MLFLOW_TRACKING_URI }}" \
-            -e MLFLOW_TRACKING_USERNAME="${{ secrets.MLFLOW_TRACKING_USERNAME }}" \
-            -e MLFLOW_TRACKING_PASSWORD="${{ secrets.MLFLOW_TRACKING_PASSWORD }}" \
-            -e AWS_ACCESS_KEY_ID="${{ secrets.AWS_ACCESS_KEY_ID }}" \
-            -e AWS_SECRET_ACCESS_KEY="${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
-            -e AWS_REGION="${{ secrets.AWS_REGION }}" \
-            -v $(pwd)/templates:/app/templates \
-            -v $(pwd)/final_model:/app/final_model \
-            -v $(pwd)/prediction_output:/app/prediction_output \
-            585008066805.dkr.ecr.ap-south-1.amazonaws.com/networksecurity:latest \
-            uvicorn app:app --host 0.0.0.0 --port 8000 --reload
-
-      - name: Wait for application startup
-        run: |
-          echo "Waiting for application to start..."
-          sleep 15
-          
-      - name: Debug container
-        run: |
-          echo "Container status:"
-          docker ps -a
-          echo "\nContainer logs:"
-          docker logs networksecurity
-          echo "\nChecking directories:"
-          docker exec networksecurity ls -la /app
-          docker exec networksecurity ls -la /app/templates
-          docker exec networksecurity ls -la /app/final_model
-          echo "\nChecking environment:"
-          docker exec networksecurity env | grep -v "KEY\|SECRET"
-      
-          echo "\nTesting endpoints:"
-          curl -v http://localhost:8000/health || true
-          
-      - name: Check host machine
-        run: |
-          echo "Checking host machine network:"
-          netstat -tulpn | grep 8000 || true
-          echo "\nChecking host machine resources:"
-          free -m
-          df -h
-          ps aux | grep uvicorn
-          
-      - name: Monitor container for stability
-        run: |
-          echo "Monitoring container for 30 seconds..."
-          for i in {1..6}; do
-            echo "\nIteration $i:"
-            docker ps
-            echo "\nContainer stats:"
-            docker stats --no-stream networksecurity
-            echo "\nRecent logs:"
-            docker logs --tail 20 networksecurity
-            sleep 5
-          done
-          
+         docker run -d -p 8080:8080 --ipc="host" --name=networksecurity -e 'AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}' -e 'AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}' -e 'AWS_REGION=${{ secrets.AWS_REGION }}'  ${{secrets.AWS_ECR_LOGIN_URI}}/${{ secrets.ECR_REPOSITORY_NAME }}:latest
       - name: Clean previous images and containers
-        if: always()
         run: |
-          sudo docker system prune -f
+         docker system prune -f

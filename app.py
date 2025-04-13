@@ -7,13 +7,6 @@ ca = certifi.where()
 from dotenv import load_dotenv
 load_dotenv()
 
-
-# Try different environment variable names and fallback to default
-mongo_db_url = os.getenv("MONGO_DB_URL")
-
-print("MongoDB URL being used:", mongo_db_url)
-
-import pymongo
 from networksecurity.exception.exception import NetworkSecurityException
 from networksecurity.logging.logger import logging
 from networksecurity.pipeline.training_pipeline import TrainingPipeline
@@ -29,15 +22,6 @@ import pandas as pd
 
 from networksecurity.utils.main_utils.utils import load_object
 from networksecurity.utils.ml_utils.model.estimator import NetworkModel
-
-client = pymongo.MongoClient(mongo_db_url, tlsCAFile=ca)
-
-from networksecurity.constant.training_pipeline import DATA_INGESTION_COLLECTION_NAME
-from networksecurity.constant.training_pipeline import DATA_INGESTION_DATABASE_NAME
-
-database = client[DATA_INGESTION_DATABASE_NAME]
-collection = database[DATA_INGESTION_COLLECTION_NAME]
-
 
 app = FastAPI()
 origins = ["*"]
