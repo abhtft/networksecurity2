@@ -7,11 +7,10 @@ ca = certifi.where()
 from dotenv import load_dotenv
 load_dotenv()
 
-# Default MongoDB URL if environment variable is not set
-default_mongo_url = 'mongodb://abhishek:0LiWdFRno2XWIGaP@cluster0-shard-00-00.yanlm.mongodb.net:27017,cluster0-shard-00-01.yanlm.mongodb.net:27017,cluster0-shard-00-02.yanlm.mongodb.net:27017/?ssl=true&replicaSet=atlas-nox15r-shard-0&authSource=admin&retryWrites=true&w=majority'
 
 # Try different environment variable names and fallback to default
-mongo_db_url = os.getenv("MONGO_DB_URL") or os.getenv("MONGODB_URL_KEY") or default_mongo_url
+mongo_db_url = os.getenv("MONGO_DB_URL")
+
 print("MongoDB URL being used:", mongo_db_url)
 
 import pymongo
@@ -31,38 +30,14 @@ import pandas as pd
 from networksecurity.utils.main_utils.utils import load_object
 from networksecurity.utils.ml_utils.model.estimator import NetworkModel
 
-# Initialize MongoDB client with retry logic
-max_retries = 3
-retry_count = 0
-client = None
+client = pymongo.MongoClient(mongo_db_url, tlsCAFile=ca)
 
-while retry_count < max_retries:
-    try:
-        print(f"Attempting MongoDB connection (attempt {retry_count + 1}/{max_retries})")
-        client = pymongo.MongoClient(mongo_db_url, tlsCAFile=ca, serverSelectionTimeoutMS=5000)
-        # Test the connection
-        client.server_info()
-        print("MongoDB Connected successfully!")
-        break
-    except Exception as e:
-        print(f"MongoDB Connection Error (attempt {retry_count + 1}): {str(e)}")
-        retry_count += 1
-        if retry_count == max_retries:
-            print("Failed to connect to MongoDB after all retries")
-            # Continue without MongoDB for now
-            client = None
-            break
+from networksecurity.constant.training_pipeline import DATA_INGESTION_COLLECTION_NAME
+from networksecurity.constant.training_pipeline import DATA_INGESTION_DATABASE_NAME
 
-# Only setup database and collection if MongoDB is connected
-if client:
-    try:
-        from networksecurity.constant.training_pipeline import DATA_INGESTION_COLLECTION_NAME
-        from networksecurity.constant.training_pipeline import DATA_INGESTION_DATABASE_NAME
-        database = client[DATA_INGESTION_DATABASE_NAME]
-        collection = database[DATA_INGESTION_COLLECTION_NAME]
-    except Exception as e:
-        print(f"Error setting up MongoDB database/collection: {str(e)}")
-        client = None
+database = client[DATA_INGESTION_DATABASE_NAME]
+collection = database[DATA_INGESTION_COLLECTION_NAME]
+
 
 app = FastAPI()
 origins = ["*"]
@@ -82,18 +57,15 @@ templates = Jinja2Templates(directory="./templates")
 async def index():
     return RedirectResponse(url="/docs")
 
-@app.get("/health")
-async def health_check():
-    return {"status": "healthy", "mongodb_connected": client is not None}
 
 @app.get("/train")
 async def train_route():
     try:
-        print("Starting training pipeline...")
+        #print("Starting training pipeline...")
         train_pipeline = TrainingPipeline()
-        print("Initialized training pipeline")
+        #print("Initialized training pipeline")
         train_pipeline.run_pipeline()
-        print("Training pipeline completed successfully")
+        #print("Training pipeline completed successfully")
         return Response("Training is successful")
     except Exception as e:
         error_msg = str(e)
@@ -106,11 +78,11 @@ async def train_route():
 async def predict_route(request: Request, file: UploadFile = File(...)):
     try:
         # Check if model files exist locally
-        if not os.path.exists("final_model/preprocessor.pkl") or not os.path.exists("final_model/model.pkl"):
-            # Sync from S3
-            s3_sync = S3Sync()
-            aws_bucket_url = f"s3://{TRAINING_BUCKET_NAME}/final_model"
-            s3_sync.sync_folder_from_s3(folder="final_model", aws_bucket_url=aws_bucket_url)
+        # if not os.path.exists("final_model/preprocessor.pkl") or not os.path.exists("final_model/model.pkl"):
+        #     # Sync from S3
+        #     s3_sync = S3Sync()
+        #     aws_bucket_url = f"s3://{TRAINING_BUCKET_NAME}/final_model"
+        #     s3_sync.sync_folder_from_s3(folder="final_model", aws_bucket_url=aws_bucket_url)
             
         df = pd.read_csv(file.file)
         preprocesor = load_object("final_model/preprocessor.pkl")
