@@ -86,7 +86,7 @@ jobs:
           docker rm networksecurity || true
           docker run -d \
             --name networksecurity \
-            -p 8080:8080 \
+            -p 8000:8000 \
             --ipc="host" \
             -e AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
             -e AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
