@@ -6,7 +6,7 @@ ca = certifi.where()
 
 from dotenv import load_dotenv
 load_dotenv()
-mongo_db_url = 'mongodb://abhishek:0LiWdFRno2XWIGaP@cluster0-shard-00-00.yanlm.mongodb.net:27017,cluster0-shard-00-01.yanlm.mongodb.net:27017,cluster0-shard-00-02.yanlm.mongodb.net:27017/?ssl=true&replicaSet=atlas-nox15r-shard-0&authSource=admin&retryWrites=true&w=majority'
+mongo_db_url = os.getenv("MONGODB_URL_KEY")
 print(mongo_db_url)
 import pymongo
 from networksecurity.exception.exception import NetworkSecurityException
@@ -19,7 +19,7 @@ from uvicorn import run as app_run
 from fastapi.responses import Response
 from starlette.responses import RedirectResponse
 import pandas as pd
-
+print("check1")
 from networksecurity.utils.main_utils.utils import load_object
 
 from networksecurity.utils.ml_utils.model.estimator import NetworkModel
@@ -50,7 +50,7 @@ templates = Jinja2Templates(directory="./templates")
 @app.get("/", tags=["authentication"])
 async def index():
     return RedirectResponse(url="/docs")
-
+print("check12")
 @app.get("/train")
 async def train_route():
     try:
@@ -82,7 +82,7 @@ async def predict_route(request: Request,file: UploadFile = File(...)):
         
     except Exception as e:
             raise NetworkSecurityException(e,sys)
-
+print("check3")
     
 if __name__=="__main__":
     app_run(app,host="0.0.0.0",port=8000)
