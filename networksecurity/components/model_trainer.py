@@ -26,9 +26,17 @@ import mlflow
 from urllib.parse import urlparse
 import dagshub
 
-# Initialize DagsHub
-dagshub.init(repo_owner='abh.tft', repo_name='networksecurity', mlflow=True)
+import os
+import dagshub
 
+# Initialize DAGsHub only if ENABLE_DAGSHUB is set to True
+DAGSHUB_TOKEN = os.getenv("DAGSHUB_TOKEN", "false").lower() == "true"
+
+if DAGSHUB_TOKEN:
+    dagshub.init(repo_owner='abh.tft', repo_name='networksecurity', mlflow=True)
+    logging.info("DAGsHub integration initialized.")
+else:
+    logging.info("DAGsHub integration is disabled.")
 # MLflow configuration
 MLFLOW_TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI")
 MLFLOW_TRACKING_USERNAME = os.getenv("MLFLOW_TRACKING_USERNAME")
