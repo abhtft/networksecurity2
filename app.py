@@ -4,12 +4,6 @@ import os
 import certifi
 ca = certifi.where()
 
-# Initialize AWS credentials
-os.environ['AWS_ACCESS_KEY_ID'] = os.getenv('AWS_ACCESS_KEY_ID')
-os.environ['AWS_SECRET_ACCESS_KEY'] = os.getenv('AWS_SECRET_ACCESS_KEY')
-os.environ['AWS_DEFAULT_REGION'] = os.getenv('AWS_DEFAULT_REGION', 'ap-south-1')
-
-
 from dotenv import load_dotenv
 load_dotenv()
 mongo_db_url = os.getenv("MONGODB_URL_KEY")
@@ -89,8 +83,6 @@ async def predict_route(request: Request,file: UploadFile = File(...)):
     except Exception as e:
             raise NetworkSecurityException(e,sys)
 
-
     
 if __name__=="__main__":
     app_run(app,host="0.0.0.0",port=8000)
-
