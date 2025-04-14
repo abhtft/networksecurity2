@@ -81,14 +81,33 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY_NAME }}
         run: |
-          docker pull $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          # Stop and remove existing container
           docker stop networksecurity || true
           docker rm networksecurity || true
+          
+          # Remove unused images to free up space
+          docker system prune -f
+          
+          # Pull and run new container
+          docker pull $ECR_REGISTRY/$ECR_REPOSITORY:latest
           docker run -d \
             --name networksecurity \
-            -p 8080:8080 \
+            -p 8000:8000 \
             --ipc="host" \
             -e AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
             -e AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
             -e AWS_REGION=${{ secrets.AWS_REGION }} \
             $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          
+          # Wait for container to start
+          sleep 10
+          
+          # Check if container is running
+          if ! docker ps | grep networksecurity; then
+            echo "Container failed to start"
+            docker logs networksecurity
+            exit 1
+          fi
+          
+          # Check if application is responding
+          curl -f http://localhost:8000/health || exit 1

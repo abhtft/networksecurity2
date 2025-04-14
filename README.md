@@ -51,3 +51,6 @@ tar xzf ./actions-runner-linux-x64-2.323.0.tar.gz
 
 aws configure
 
+docker ps -a
+
+docker logs networksecurity
