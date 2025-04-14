@@ -6,6 +6,7 @@ on:
       - main
     paths-ignore:
       - 'README.md'
+      - '.github/workflows/main.yml'
 
 permissions:
   id-token: write
@@ -37,6 +38,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y jq unzip
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
@@ -47,30 +49,15 @@ jobs:
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
-      
-      - name: Debug ECR URI and Repository
-        run: |
-          echo "AWS_ECR_LOGIN_URI: ${{secrets.AWS_ECR_LOGIN_URI}}"
-          echo "ECR_REPOSITORY_NAME: ${{secrets.ECR_REPOSITORY_NAME}}"
-          echo "Full pull command: docker pull ${{secrets.AWS_ECR_LOGIN_URI}}/${{secrets.ECR_REPOSITORY_NAME}}:latest"
-          
-      - name: Pull latest images
-        run: |
-          docker pull ${{secrets.AWS_ECR_LOGIN_URI}}/${{secrets.ECR_REPOSITORY_NAME}}:latest
 
-      - name: Build, tag, and push image to Amazon ECR
-        id: build-image
+      - name: Build and push Docker image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY_NAME }}
           IMAGE_TAG: latest
         run: |
-          # Build a docker container and
-          # push it to ECR so that it can
-          # be deployed to ECS.
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-          echo "::set-output name=image::$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
 
   Continuous-Deployment:
     needs: build-and-push-ecr-image
@@ -89,21 +76,20 @@ jobs:
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
-      
-      
-      - name: Pull latest images
-        run: |
-         docker pull ${{secrets.AWS_ECR_LOGIN_URI}}/${{ secrets.ECR_REPOSITORY_NAME }}:latest
 
-
-         
-      #- name: Stop and remove  container if running
-       # run: |
-        # docker ps -q --filter "name=networksecurity" | grep -q . && docker stop networksecurity && docker rm -fv networksecurity
-       
-      - name: Run Docker Image to serve users
+      - name: Pull and run Docker container
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY_NAME }}
         run: |
-         docker run -d -p 8080:8080 --ipc="host" --name=networksecurity -e 'AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}' -e 'AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}' -e 'AWS_REGION=${{ secrets.AWS_REGION }}'  ${{secrets.AWS_ECR_LOGIN_URI}}/${{ secrets.ECR_REPOSITORY_NAME }}:latest
-      - name: Clean previous images and containers
-        run: |
-         docker system prune -f
+          docker pull $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          docker stop networksecurity || true
+          docker rm networksecurity || true
+          docker run -d \
+            --name networksecurity \
+            -p 8080:8080 \
+            --ipc="host" \
+            -e AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
+            -e AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
+            -e AWS_REGION=${{ secrets.AWS_REGION }} \
+            $ECR_REGISTRY/$ECR_REPOSITORY:latest
