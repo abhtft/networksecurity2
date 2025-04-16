@@ -8,7 +8,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 #
-import pymongo
 from networksecurity.exception.exception import NetworkSecurityException
 from networksecurity.logging.logger import logging
 from networksecurity.pipeline.training_pipeline import TrainingPipeline
@@ -23,9 +22,6 @@ import pandas as pd
 from networksecurity.utils.main_utils.utils import load_object
 
 from networksecurity.utils.ml_utils.model.estimator import NetworkModel
-
-
-client = pymongo.MongoClient(mongo_db_url, tlsCAFile=ca)
 
 
 app = FastAPI()
